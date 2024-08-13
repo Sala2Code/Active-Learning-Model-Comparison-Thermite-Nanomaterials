@@ -1,38 +1,61 @@
-# IRBS
-This file contains:
-* an [overview](#overview) of the code,
-* a [set-up](#set-up) guide to install it,
-* a [guide](#run-project) to run the complete project.
+# Active Learning Model Comparison for Thermite Nanomaterials
 
 ## Overview
-This code is developed in order to do a Bayesian Optimization to search for the optimal points to discover 
-the physical specifications of a system that will lead to the desired results. 
-From now on, the physical specifications of a system that are controlled by the user are called `features`, 
-while the variables that are the outputs from the experiment are called `targets`.
 
-Since the values from the targets cannot be known from the features before conducting an expensive experiment,
-the goal of this code is to construct a `surrogate model` that will aim to predict the value of the targets 
-without running the experiment. 
-This estimated value will help to guide the search in order to find `interest targets points` without running the
-full experiment. 
-However, since we are interested in the real value of the targets (referred often as `ground truth`), after selecting
-some points, we will conduct the experiments and improve our surrogate model for the next cycle.
-This experiments will be conducted through the simulator `OD`, already included on this package. 
-If in need to add another simulator, please, use the same logic existing inside `models`: 
-* a wrapper for running the simulator inside one file,
-* all the auxiliary functions necessary to run the simulator on one file.
+This repository contains the code and documentation for my internship project, where I focused on comparing active learning models using custom-developed metrics in the context of Al/CuO thermite nanomaterials. The goal was to identify optimal material compositions and process parameters that meet specific user-defined performance criteria, such as combustion pressure and temperature.
 
-At the end of this experiment, the user should obtain more point of interest then if only running a 
-Lattice Hypercube Sampling (LHS).
+## Internship Project
 
-## Set up
-### Rules and guidelines
+During my internship, I explored different methodologies for intelligent sequential experimental design. These methodologies were applied to the Al/CuO thermite system, a promising class of metal-based reactive materials. These materials have applications in various fields such as miniature autonomous systems, nanosatellites, and high-energy actuations, particularly in harsh environments.
+
+The project aimed to overcome the challenges associated with the vast material design space and the lack of reliable design guidelines. To address these challenges, we implemented and compared various active learning and Bayesian optimization techniques, focusing on efficient exploration of the design space to identify optimal thermite compositions.
+
+## Methodology
+
+We initiated our approach by training a Gaussian Process Regression (GPR) model to accurately predict the combustion pressure and temperature of Al/CuO thermite materials. The GPR model serves as a predictive tool, providing estimates of these critical properties across the design space. To enhance the efficiency of our exploration within this space, we developed a custom acquisition function. This function specifically targets a *region of interest* (ROI), which is defined by the desired range of combustion properties, such as specific pressure and temperature thresholds that are relevant to practical applications.
+
+### 1. Gaussian Process Regression with Custom Acquisition Function (*irbs*)
+
+The first model we developed, named **Interest Region Bayesian Sampling (irbs)**, leverages this acquisition function to guide the sampling process. The goal of irbs is to selectively sample data points that are most likely to fall within the ROI, thereby optimizing the search for ideal thermite compositions. By focusing the sampling efforts on the most promising regions, irbs aims to minimize unnecessary evaluations in less relevant areas of the design space, making the experimental design more efficient and effective.
+
+### 2. Efficient Global Optimization (EGO) Algorithm
+
+We extended the traditional EGO algorithm to a multi-objective optimization problem using a scalarized objective function. The algorithm, known as ParEGO, converts multiple objectives into a single scalar objective using a parameterized weight vector. We further modified this approach to focus on exploring the ROI by introducing the sGA_tent algorithm.
+
+#### 2.1 Replacing SHGO with Genetic Algorithm (*GA_GP*)
+
+In another variant, we replaced the Simplicial Homology Global Optimization (SHGO) algorithm with a genetic algorithm (GA). This approach, named GA_GP, focuses on maximizing the probability of sampling points within the ROI, leveraging the genetic algorithm's ability to explore the design space effectively.
+
+#### 2.2 Scalarization (*sGA_tent*)
+
+The sGA_tent algorithm is a modified version of the ParEGO algorithm. It replaces the traditional scalarization approach with a function that emphasizes exploration within the ROI. The algorithm employs a genetic algorithm to iteratively optimize the scalar objective function, balancing exploration and exploitation.
+
+### Metrics
+
+To compare the performance of the different algorithms, we used three custom-developed metrics:
+
+1. **No Interest**: The number of points sampled outside the region of interest (ROI). A lower value indicates better performance.
+   
+2. **Coverage**: The total volume of hyper-spheres centered at each sampled point, normalized by the number of points. This metric indicates how well the algorithm covers the design space.
+
+3. **Voronoi Volume**: The volume of the region around each sampled point where the point is closer to any other sampled point. This metric provides insight into the spatial arrangement and influence of the sampled points.
+
+### Results
+
+Below, there are some plots that illustrate how the active learning algorithms performed. For a detailed exploration of the specific regions of interest (ROI) used in real applications and the interpretation of the data, please refer to the [project report](path-to-report) (see the section titled "Results and Discussion"). In the report, you can find an in-depth analysis of the results, including the specific regions of interest relevant to practical applications and a thorough interpretation of the experimental data.
+
+## References
+
+For more detailed information about the methodology and results, please refer to the accompanying [project report](path-to-report).
+
+# Set up
+## Rules and guidelines
 In order to get the best out of the template:
 * Don't remove any lines from the `.gitignore` file we provide
 * Don't commit data to your repository
 * Don't commit any credentials or your local configuration to your repository. Keep all your credentials and local configuration in `conf/local/`
 
-### Install dependencies
+## Install dependencies
 * When using **pip** (recommended)
 The dependencies are declared in `src/requirements.txt`.  
 To install them, we suggest to create a virtual environment and then install them.
