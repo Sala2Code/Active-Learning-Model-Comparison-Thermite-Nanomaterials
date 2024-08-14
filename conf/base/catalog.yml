@@ -7,7 +7,7 @@
 ###### prep ######
 initial_data:
   type: pandas.CSVDataSet
-  filepath: data/02_intermediate/100_initial_data.csv
+  filepath: data/02_intermediate/100_initial_data_input=2.csv
 
 scaler:
   type: pickle.PickleDataSet
@@ -20,6 +20,28 @@ treatment:
 treated_data:
   type: pandas.CSVDataSet
   filepath: data/05_model_input/base/100_initial_data.csv
+
+
+###### model ######
+history:
+  type: IncrementalDataSet
+  path: data/07_model_output/base/history
+  dataset: pandas.CSVDataSet
+  filename_suffix: .csv
+
+increased_data:
+  type: pandas.CSVDataSet
+  filepath: data/07_model_output/base/increased_data.csv
+
+rerun_history:
+  type: IncrementalDataSet
+  path: data/07_model_output/base/rerun_history
+  dataset: pandas.CSVDataSet
+  filename_suffix: .csv
+
+rerun_increased_data:
+  type: pandas.CSVDataSet
+  filepath: data/07_model_output/base/rerun_increased_data.csv
 
 ###### IRBS (Interest Region Bayesian Sampling) ######
 irbs_history:
