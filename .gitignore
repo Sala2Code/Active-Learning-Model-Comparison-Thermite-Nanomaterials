@@ -19,6 +19,7 @@ docs/**
 src/simulator_0d/data/
 logs/**
 to_del/
+results/
 
 # except their sub-folders
 #!data/**/

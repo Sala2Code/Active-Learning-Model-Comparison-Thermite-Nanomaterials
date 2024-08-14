@@ -27,7 +27,7 @@
   },
 
   "run_condition":{
-    "run_until_max_size": true, 
+    "run_until_max_size": false, 
     "batch_size": 8,
 
     "max_size": 200,

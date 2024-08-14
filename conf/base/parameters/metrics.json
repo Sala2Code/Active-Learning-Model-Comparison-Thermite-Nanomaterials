@@ -31,20 +31,33 @@
     },
 
     "tol": 1e-3,
-    "isFilter": true
+    "isFilter": [false,true],
+    "high_precision_mode": [true, false]
   },
 
   "experiments": {
     "exp0": {
-      "color": "blue",
-      "name": "name_exp0 [reg_itr]",
-      "path": "PATH/history",
-      "scale": "real-inverse"
+      "color": "royalblue",
+      "name": "irbs",
+      "path": "results//07_24//input=3//all_R2//input3_R2_UI//increased_data.csv",
+      "scale": "read"
     },
     "exp1": {
-      "color": "red",
-      "name": "name_exp1 [reg_itr]",
-      "path": "PATH/name.csv",
+      "color": "firebrick",
+      "name": "irbs_C",
+      "path": "results//07_24//input=3//all_R2//input3_R2_UIC//increased_data.csv",
+      "scale": "read"
+    },
+    "exp2": {
+      "color": "forestgreen",
+      "name": "GA_GP",
+      "path": "results//07_24//input=3//all_R2//parEGO_GP//increased_data.csv",
+      "scale": "read"
+    },
+    "exp3": {
+      "color": "goldenrod",
+      "name": "sGA_tent",
+      "path": "results//07_24//input=3//all_R2//parEGO_tent//increased_data.csv",
       "scale": "read"
     }
   }

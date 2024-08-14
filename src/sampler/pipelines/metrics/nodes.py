@@ -7,13 +7,10 @@ from typing import List, Dict
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import r2_score
-from scipy.stats import norm
 import os
 import matplotlib.pyplot as plt
 
 from sampler.common.data_treatment import DataTreatment
-from sampler.pipelines.metrics.asvd import ASVD
 from sampler.pipelines.metrics.postprocessing_functions import create_dict, prepare_new_data, prepare_benchmark, get_result
 from sampler.pipelines.metrics.volume import covered_space_bound
 from sampler.pipelines.metrics.voronoi import get_volume_voronoi
@@ -83,8 +80,6 @@ def get_metrics(
 
     n_interest = {} # for each experiment, number of interest points (dict of int)
     volume = {} # for each experiment, volume space covered (dict of float)
-    total_asvd_scores = {}
-    interest_asvd_scores = {}
     volume_voronoi = {} # for each experiment, volumes of the Voronoi regions (clipped by the unit hypercube) : in feature space and feature+target space
     
     for key, value in data.items():
@@ -93,7 +88,7 @@ def get_metrics(
 
         # Get number of interesting samples
         n_interest[key] = len(value["interest"])
-        
+
         # Get volume of interesting samples
         if key in params_volume["default"]:
             volume[key] = params_volume["default"][key]
@@ -101,18 +96,6 @@ def get_metrics(
             volume[key] = covered_space_bound(scaled_data_interest_f, radius, params_volume, len(features))
         else:
             volume[key] = np.array([0,0])
-        
-        # Get all data distribution using ASVD
-        XY = value["df"][features+targets].values
-        scaled_data = pd.DataFrame(treatment.scaler.transform(XY), columns=features+targets)
-        total_asvd = ASVD(scaled_data, features, targets)
-        total_asvd_scores[key] = total_asvd.compute_scores()
-        
-        # Get only interest data distribution using ASVD
-        XY = value["interest"][features+targets].values
-        scaled_data = pd.DataFrame(treatment.scaler.transform(XY), columns=features+targets)
-        interest_asvd = ASVD(scaled_data, features, targets)
-        interest_asvd_scores[key] = interest_asvd.compute_scores()
 
         # Get Voronoi volume
         volume_voronoi[key] = {
@@ -122,19 +105,17 @@ def get_metrics(
         if params_voronoi["compute_voronoi"]["features"]:
             volume_voronoi[key]["features"] = get_volume_voronoi(
                 scaled_data_interest_f,
-                len(features),tol=params_voronoi["tol"], isFilter=params_voronoi["isFilter"]
+                len(features),tol=params_voronoi["tol"], isFilter=params_voronoi["isFilter"][0], high_precision_mode=params_voronoi["high_precision_mode"][0]
             )
         if params_voronoi["compute_voronoi"]["features_targets"]:
             volume_voronoi[key]["features_targets"] = get_volume_voronoi(
                 np.hstack([scaled_data_interest_f, scaled_data_interest_t]),
-                len(features+targets),tol=params_voronoi["tol"], isFilter=params_voronoi["isFilter"]
+                len(features+targets),tol=params_voronoi["tol"], isFilter=params_voronoi["isFilter"][1], high_precision_mode=params_voronoi["high_precision_mode"][1]
             )
 
     return dict(
         n_interest=n_interest,
         volume=volume,
-        total_asvd_scores=total_asvd_scores,
-        interest_asvd_scores=interest_asvd_scores,
         volume_voronoi=volume_voronoi
     )
 
@@ -166,14 +147,11 @@ def plot_metrics(
     names: Dict,
     region: Dict,
     volume: Dict,
-    total_asvd_scores: Dict[str, Dict[str, float]],
-    interest_asvd_scores: Dict[str, Dict[str, float]],
     volume_voronoi: Dict
 ):
     features_dic = names["features"]
     features = features_dic["str"]
     targets = names["targets"]["str"]
-    asvd_metrics_to_plot = ["sum_augm", "rsd_x", "rsd_xy", "rsd_augm", "riqr_x", "riqr_xy"]
 
     targets_volume = None  # TODO yasser: compute covered area on targets space
     # targets_volume = {k: 10000 for k in data.columns}
@@ -184,8 +162,6 @@ def plot_metrics(
     kde_plot = gm.targets_kde(data, targets, region)
 
     # Distribution analysis
-    total_asvd_plot = gm.plot_asvd_scores(data, total_asvd_scores, asvd_metrics_to_plot)
-    interest_asvd_plot = gm.plot_asvd_scores(data, interest_asvd_scores, asvd_metrics_to_plot)
     voronoi_plot = gm.dist_volume_voronoi(data, volume_voronoi)
 
     # Detailed features versus targets plots
@@ -201,10 +177,7 @@ def plot_metrics(
         "violin_plot": violin_plot,
         "targets_kde": kde_plot,
         # "pair_plot": pair_plot,
-        "ASVD_all": total_asvd_plot,
-        "ASVD_interest": interest_asvd_plot,
-        "volume_voronoi": voronoi_plot,
-        **{f'features_targets_{k}': v for k, v in feat_tar_dict.items()},
+        "volume_voronoi": voronoi_plot
     }
     plots_dict = {f'{i+1:02d}_{k}': v for i, (k, v) in enumerate(plots_dict.items())}
 

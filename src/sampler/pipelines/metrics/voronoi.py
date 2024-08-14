@@ -36,6 +36,7 @@ def is_arr_include(arr_check, arr_ref):
 @njit(fastmath=True)
 def distance(p1, p2):
     return np.linalg.norm(p1 - p2)
+
 @njit
 def filter(points, threshold, dim):
     num_points = len(points)
@@ -57,7 +58,29 @@ def filter(points, threshold, dim):
 
     return filtered_points[:count]
 
-def get_volume_voronoi(points: np.ndarray, dim: int, tol: float=1e-3, isFilter: bool=True):
+@njit
+def V_representation(A, b, tol, combinations):
+    max_points = len(combinations)
+    dim = A.shape[1]
+    points = np.empty((max_points, dim), dtype=np.float64)
+    count = 0
+    
+    for comb in combinations:
+        A_sub = A[comb]
+        b_sub = b[comb]
+        
+        # Check if the matrix is singular by evaluating the determinant
+        if np.abs(np.linalg.det(A_sub)) > tol:  # Consider using a tolerance to avoid numerical issues
+            point = np.linalg.solve(A_sub, b_sub)
+            if np.all(A @ point <= b + tol):  # Check the tolerance
+                points[count] = point
+                count += 1
+    
+    return points[:count]
+
+
+
+def get_volume_voronoi(points: np.ndarray, dim: int, tol: float=1e-3, isFilter: bool=True, high_precision_mode: bool=True) -> np.ndarray:
     '''
     Compute the volume of the Voronoi diagram of a set of points in a hypercube of dimension dim.
     The volume is computed by clipping the Voronoi regions with the hypercube and computing the volume of the clipped regions with the ConvexHull method.
@@ -68,6 +91,7 @@ def get_volume_voronoi(points: np.ndarray, dim: int, tol: float=1e-3, isFilter: 
     dim : int The dimension of the hypercube. (parameter redundant with the dimension of the points)
     tol : float, optional The tolerance to handle numerical errors.
     isFilter : bool, the function will filter the points to remove duplicates and close points (recommended for dim>3).
+    high_precision_mode : bool, the function will use a more precise method to compute the volume of the regions but really slower.
 
     See notebooks to understand more about the method and the parameters (and to improve it !).
     '''
@@ -93,66 +117,92 @@ def get_volume_voronoi(points: np.ndarray, dim: int, tol: float=1e-3, isFilter: 
     vertices_regions_inside = [] # List of vertices defining the regions inside the hypercube
     vertices_inside = np.array([v for v in vor_extended.vertices if np.all(v > 0 - tol) and np.all(v < 1 + tol)], dtype=np.float64)
 
-    for reg in tqdm.tqdm(vor_extended.regions): 
-        if -1 in reg or len(reg) == 0: # if region is infinite or empty, ignore it
-            continue
+    if high_precision_mode:
+        hull_hypercube = ConvexHull(hypercube_points)
+        A_hypercube = hull_hypercube.equations[:, :-1]
+        b_hypercube = -hull_hypercube.equations[:, -1]
+        
+        for reg in tqdm.tqdm(vor_extended.regions):
+            if -1 in reg or len(reg)==0 : # ignore this reg, it not belongs to the hypercube (because ref_far points)
+                continue
+            
+            polytope = np.array([vor_extended.vertices[i] for i in reg])
 
-        polytope = np.array([vor_extended.vertices[i] for i in reg], dtype=np.float64)
+            if is_arr_include(polytope, vertices_inside): # if the region is inside the hypercube doesn't need to compute intersection (clip)
+                vertices_regions_inside.append(polytope)
+                continue
 
-        if is_arr_include(polytope, vertices_inside): # if the region is inside the hypercube doesn't need to compute intersection (clip)
-            vertices_regions_inside.append(polytope)
-            continue
+            hull = ConvexHull(polytope)
+            A = hull.equations[:, :-1]
+            b = -hull.equations[:, -1]
 
-        if isFilter: # advice to use it when the number of points is high : round values & remove close points
-            polytope = filter(polytope, tol, dim)
+            A_combined = np.vstack([A, A_hypercube])
+            b_combined = np.hstack([b, b_hypercube])
+
+            combinations = np.array(list(itertools.combinations(range(len(A_combined)), dim)), dtype=np.int64)
+            points_inter = V_representation(A_combined, b_combined, tol, combinations)
+            vertices_regions_inside.append(points_inter)
+
+    else:
+        for reg in tqdm.tqdm(vor_extended.regions): 
+            if -1 in reg or len(reg) == 0: # if region is infinite or empty, ignore it
+                continue
+
+            polytope = np.array([vor_extended.vertices[i] for i in reg], dtype=np.float64)
+
+            if is_arr_include(polytope, vertices_inside): # if the region is inside the hypercube doesn't need to compute intersection (clip)
+                vertices_regions_inside.append(polytope)
+                continue
+
+            if isFilter: # advice to use it when the number of points is high : round values & remove close points
+                polytope = filter(polytope, tol, dim)
 
 
-        # * Add points of the hypercube inside the polytope (region) if within the region
-        delaunay = Delaunay(polytope)
-        for p in hypercube_points:
-            if delaunay.find_simplex(p)>=0:
-                polytope = np.vstack([polytope, p])
-                hypercube_points = np.delete(hypercube_points, np.where((hypercube_points == p).all(axis=1)), axis=0)
-        # ? Other method, maybe faster/efficient ?
-        # num_vertices = len(polytope)
-        # c = np.zeros(num_vertices)
-        # A = np.vstack((polytope.T, np.ones(num_vertices)))
-        # for p in hypercube_points:
-        #     b = np.append(p, 1)
-        #     res = linprog(c, A_eq=A, b_eq=b, bounds=(0, None))
-        #     if res.success and np.all(res.x >= 0):
-        #         polytope = np.vstack([polytope, p])
+            # * Add points of the hypercube inside the polytope (region) if within the region
+            delaunay = Delaunay(polytope)
+            for p in hypercube_points:
+                if delaunay.find_simplex(p)>=0:
+                    polytope = np.vstack([polytope, p])
+                    hypercube_points = np.delete(hypercube_points, np.where((hypercube_points == p).all(axis=1)), axis=0)
+            # ? Other method, maybe faster/efficient ?
+            # num_vertices = len(polytope)
+            # c = np.zeros(num_vertices)
+            # A = np.vstack((polytope.T, np.ones(num_vertices)))
+            # for p in hypercube_points:
+            #     b = np.append(p, 1)
+            #     res = linprog(c, A_eq=A, b_eq=b, bounds=(0, None))
+            #     if res.success and np.all(res.x >= 0):
+            #         polytope = np.vstack([polytope, p])
 
-        all_intersections = np.empty((0, dim), dtype=np.float64)
+            all_intersections = np.empty((0, dim), dtype=np.float64)
 
-        # TODO : Upgrade this part to compute smartly the intersection between the hypercube and the polytope.
-        # ?      I tried to use only ridge_vertices but either I did a mistake or it's not enough to compute the intersection ! 
-        # ?      Set small number of points with dim > 2 and look the difference between plot according to the method used
-        # polytope_convexHull = ConvexHull(polytope)
-        # polytope_ridge_vertices = polytope_convexHull.simplices
-        # for ridge_index in polytope_ridge_vertices:
-        #     point1, point2 = polytope[ridge_index[0]], polytope[ridge_index[1]]
-        #     inter_points = intersect_hypercube(point1, point2, dim, tol)
-        #     if inter_points.size > 0:
-        #         all_intersections = np.vstack((all_intersections, inter_points))
+            # TODO : Upgrade this part to compute smartly the intersection between the hypercube and the polytope.
+            # ?      I tried to use only ridge_vertices but either I did a mistake or it's not enough to compute the intersection ! 
+            # ?      Set small number of points with dim > 2 and look the difference between plot according to the method used
+            # polytope_convexHull = ConvexHull(polytope)
+            # polytope_ridge_vertices = polytope_convexHull.simplices
+            # for ridge_index in polytope_ridge_vertices:
+            #     point1, point2 = polytope[ridge_index[0]], polytope[ridge_index[1]]
+            #     inter_points = intersect_hypercube(point1, point2, dim, tol)
+            #     if inter_points.size > 0:
+            #         all_intersections = np.vstack((all_intersections, inter_points))
 
-        for ridge in vor_extended.ridge_vertices: 
-            valid_ridge = np.array([v for v in ridge if v != -1 and v in reg]) # Get the valid ridge vertices in the region
-            if len(valid_ridge) > 1:
-                for simplex in itertools.combinations(valid_ridge, 2): # Make all combinations of the valid ridge vertices (expensive !)
-                    point1, point2 = vor_extended.vertices[simplex[0]], vor_extended.vertices[simplex[1]]
-                    inter_points = intersect_hypercube(point1, point2, dim, tol)
-                    if inter_points.size > 0:
-                        all_intersections = np.vstack((all_intersections, inter_points))
-   
+            for ridge in vor_extended.ridge_vertices: 
+                valid_ridge = np.array([v for v in ridge if v != -1 and v in reg]) # Get the valid ridge vertices in the region
+                if len(valid_ridge) > 1:
+                    for simplex in itertools.combinations(valid_ridge, 2): # Make all combinations of the valid ridge vertices (expensive !)
+                        point1, point2 = vor_extended.vertices[simplex[0]], vor_extended.vertices[simplex[1]]
+                        inter_points = intersect_hypercube(point1, point2, dim, tol)
+                        if inter_points.size > 0:
+                            all_intersections = np.vstack((all_intersections, inter_points))
 
-        polytope = polytope[(polytope > 0 - tol).all(axis=1) & (polytope < 1 + tol).all(axis=1)] # Keep only points inside the hypercube
         if len(all_intersections) > 0:
             pol = np.vstack([polytope, np.vstack(all_intersections)])
         else:
             pol = np.vstack([polytope])
         vertices_regions_inside.append(pol)
-
+        polytope = polytope[(polytope > 0 - tol).all(axis=1) & (polytope < 1 + tol).all(axis=1)] # Keep only points inside the hypercube
+    
     if isFilter:
         for i, region in enumerate(vertices_regions_inside):
             vertices_regions_inside[i] = filter(region, tol, dim)
@@ -162,7 +212,7 @@ def get_volume_voronoi(points: np.ndarray, dim: int, tol: float=1e-3, isFilter: 
     for i, reg in enumerate(vertices_regions_inside):
         if len(reg) > dim:
             try:
-                l_volume[i] = ConvexHull(reg, qhull_options='Q12 Qc Qs').volume
+                l_volume[i] = ConvexHull(reg, qhull_options='').volume
             except Exception as e:
                 print(f"Error in computing volume of region {i} : {e}")
                 l_volume[i] = 0
