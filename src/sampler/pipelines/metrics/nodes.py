@@ -166,11 +166,6 @@ def plot_metrics(
 
     # Detailed features versus targets plots
     # pair_plot = gm.pair_grid_for_all_variables(data, features, targets)
-    feat_tar_dict = {}
-    feat_tar_dict["all"] = gm.plot_feat_tar(data, features, targets, only_interest=False)
-    feat_tar_dict["all_int"] = gm.plot_feat_tar(data, features, targets, only_interest=True, title_extension='(only interest)')
-    for k in data.keys():
-        feat_tar_dict[k] = gm.plot_feat_tar({k: data[k]}, features, targets, only_interest=False)
 
     plots_dict = {
         "features_2d": features_2d,

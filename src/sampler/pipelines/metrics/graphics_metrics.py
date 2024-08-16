@@ -288,13 +288,13 @@ def dist_volume_voronoi(data, volume_voronoi):
             x_limit_f = max(l_val_zoomed)
 
             x_limit_features = max(x_limit_features, x_limit_f)
-            y_limit_features = max(y_limit_features, sorted_features[x_limit_f+1])
+            y_limit_features = max(y_limit_features, sorted_features[min(x_limit_f+1, len(sorted_features))])
 
         if max_targets>0:
             threshold_value_targets = max_targets * 0.01
             x_limit_t = max([i for i, v in enumerate(sorted_features_targets) if v < threshold_value_targets])
             x_limit_targets = max(x_limit_targets, x_limit_t)
-            y_limit_targets = max(y_limit_targets, sorted_features_targets[x_limit_t+1])
+            y_limit_targets = max(y_limit_targets, sorted_features_targets[min(x_limit_t+1, len(sorted_features_targets))])
 
 
         feature_data_list.append(features)

@@ -196,28 +196,28 @@ def get_volume_voronoi(points: np.ndarray, dim: int, tol: float=1e-3, isFilter: 
                         if inter_points.size > 0:
                             all_intersections = np.vstack((all_intersections, inter_points))
 
-        if len(all_intersections) > 0:
-            pol = np.vstack([polytope, np.vstack(all_intersections)])
-        else:
-            pol = np.vstack([polytope])
-        vertices_regions_inside.append(pol)
-        polytope = polytope[(polytope > 0 - tol).all(axis=1) & (polytope < 1 + tol).all(axis=1)] # Keep only points inside the hypercube
-    
-    if isFilter:
-        for i, region in enumerate(vertices_regions_inside):
-            vertices_regions_inside[i] = filter(region, tol, dim)
+            polytope = polytope[(polytope > 0 - tol).all(axis=1) & (polytope < 1 + tol).all(axis=1)] # Keep only points inside the hypercube
+            if len(all_intersections) > 0:
+                pol = np.vstack([polytope, np.vstack(all_intersections)])
+            else:
+                pol = np.vstack([polytope])
+            vertices_regions_inside.append(pol)
+
+            if isFilter:
+                for i, region in enumerate(vertices_regions_inside):
+                    vertices_regions_inside[i] = filter(region, tol, dim)
 
     # l_volume = np.array([ConvexHull(reg, qhull_options='Q12 Qc Qs').volume for reg in vertices_regions_inside]) # ? Add some parameters to compute volume and avoid errors
     l_volume = np.zeros(len(vertices_regions_inside))
     for i, reg in enumerate(vertices_regions_inside):
         if len(reg) > dim:
             try:
-                l_volume[i] = ConvexHull(reg, qhull_options='').volume
+                l_volume[i] = ConvexHull(reg, qhull_options='Q12 Qc Qs').volume
             except Exception as e:
                 print(f"Error in computing volume of region {i} : {e}")
                 l_volume[i] = 0
         else:
             l_volume[i] = 0
-    print("Quantity of error volume : ", 1-np.sum(l_volume) )
+    print("Quantity of error volume : ", 1-np.sum(l_volume))
     return l_volume
 
