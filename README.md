@@ -42,7 +42,7 @@ To compare the performance of the different algorithms, we used three custom-dev
 
 ### Results
 
-Below, there are some plots that illustrate how the active learning algorithms performed. For a detailed exploration of the specific regions of interest (ROI) used in real applications and the interpretation of the data, please refer to the [project report](path-to-report) (see the section titled "Results and Discussion"). In the report, you can find an in-depth analysis of the results, including the specific regions of interest relevant to practical applications and a thorough interpretation of the experimental data.
+Below, there are some plots that illustrate how the active learning algorithms performed. For a detailed exploration of the specific regions of interest (ROI) used in real applications and the interpretation of the data, please refer to the [project report](https://github.com/Sala2Code/Active-Learning-Model-Comparison-Thermite-Nanomaterials/blob/main/rapport.pdf) (see the section titled "Results and Discussion"). In the report, you can find an in-depth analysis of the results, including the specific regions of interest relevant to practical applications and a thorough interpretation of the experimental data.
 
 ## References
 
